@@ -1,10 +1,10 @@
 import torch
 import open_clip
 import pandas as pd
-import numpy as np
 from pathlib import Path
 from PIL import Image
 from pillow_heif import register_heif_opener
+from tqdm.auto import tqdm
 
 register_heif_opener()
 
@@ -24,7 +24,7 @@ model = model.to(device)
 model.eval()
 
 predictor = torch.nn.Linear(768, 1)
-predictor.load_state_dict(torch.load(MODEL_PATH))
+predictor.load_state_dict(torch.load(MODEL_PATH, map_location=device))
 predictor = predictor.to(device)
 predictor.eval()
 
@@ -32,12 +32,10 @@ df = pd.read_csv(INPUT)
 
 rows = []
 
-for p in df.file_path:
-
+for p in tqdm(df.file_path, total=len(df), desc="Aesthetic scoring", unit="image"):
     path = Path(p)
 
     try:
-
         image = preprocess(Image.open(path).convert("RGB")).unsqueeze(0).to(device)
 
         with torch.no_grad():
@@ -47,11 +45,10 @@ for p in df.file_path:
 
         rows.append((p, score))
 
-    except:
+    except Exception:
         rows.append((p, 0))
 
 out = pd.DataFrame(rows, columns=["file_path", "aesthetic_score"])
-
 out.to_csv(OUT, index=False)
 
 print("processed =", len(out))

@@ -1,38 +1,59 @@
-import pandas as pd
-import numpy as np
-import cv2
 from pathlib import Path
-from PIL import Image
-from pillow_heif import register_heif_opener
+import sys
 
-register_heif_opener()
-
-INPUT = r"D:\photo_ai\data\index\similar_groups.csv"
-OUT = r"D:\photo_ai\data\index\sharpness.csv"
+import cv2
+import pandas as pd
+from tqdm import tqdm
 
 
-def compute_sharpness(path: Path):
-    try:
-        img = np.array(Image.open(path).convert("L"))
-        return float(cv2.Laplacian(img, cv2.CV_64F).var())
-    except Exception:
-        return None
+def compute_sharpness(image_path: Path) -> float:
+    image = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
+    if image is None:
+        return float("nan")
+    return float(cv2.Laplacian(image, cv2.CV_64F).var())
 
 
-def main():
-    df = pd.read_csv(INPUT)
+def main(index_dir: Path) -> None:
+    analysis_csv = index_dir / "analysis_images.csv"
+    output_csv = index_dir / "sharpness_scores.csv"
 
-    rows = []
-    for p in df["file_path"]:
-        rows.append((p, compute_sharpness(Path(p))))
+    if not analysis_csv.exists():
+        raise FileNotFoundError(f"Не найден файл: {analysis_csv}")
 
-    out = pd.DataFrame(rows, columns=["file_path", "sharpness"])
-    out.to_csv(OUT, index=False, encoding="utf-8-sig")
+    df = pd.read_csv(analysis_csv)
 
-    print("processed =", len(out))
-    print("nan =", int(out["sharpness"].isna().sum()))
-    print("saved_to =", OUT)
+    path_column = None
+    for candidate in ("file_path", "path", "full_path"):
+        if candidate in df.columns:
+            path_column = candidate
+            break
+
+    if path_column is None:
+        raise KeyError(
+            "В analysis_images.csv не найдена колонка с путём к файлу. "
+            "Ожидалась одна из: file_path, path, full_path"
+        )
+
+    results = []
+
+    for image_path_str in tqdm(df[path_column].tolist(), desc="Sharpness", unit="image"):
+        image_path = Path(image_path_str)
+        sharpness = compute_sharpness(image_path)
+        results.append({
+            path_column: image_path_str,
+            "sharpness_score": sharpness,
+        })
+
+    result_df = pd.DataFrame(results)
+    result_df.to_csv(output_csv, index=False)
+
+    print(f"rows = {len(df)}")
+    print(f"saved_to = {output_csv}")
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) != 2:
+        print("Использование: python Scripts\\05_compute_sharpness.py <index_dir>")
+        sys.exit(1)
+
+    main(Path(sys.argv[1]))

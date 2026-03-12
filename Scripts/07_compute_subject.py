@@ -4,6 +4,7 @@ import numpy as np
 from pathlib import Path
 from PIL import Image
 from pillow_heif import register_heif_opener
+from tqdm import tqdm
 
 register_heif_opener()
 
@@ -15,7 +16,7 @@ CASCADE = cv2.CascadeClassifier(
 )
 
 
-def compute_subject(path: Path):
+def compute_subject(path: Path) -> float:
     try:
         img = np.array(Image.open(path).convert("L"))
         h, w = img.shape
@@ -24,49 +25,47 @@ def compute_subject(path: Path):
             img,
             scaleFactor=1.1,
             minNeighbors=5,
-            minSize=(30, 30)
+            minSize=(30, 30),
         )
 
         if len(faces) == 0:
-            return 0
+            return 0.0
 
         scores = []
 
         for (x, y, fw, fh) in faces:
-
             face_area = (fw * fh) / (w * h)
 
             cx = x + fw / 2
             cy = y + fh / 2
 
             center_dist = np.sqrt(
-                ((cx - w/2) / w)**2 +
-                ((cy - h/2) / h)**2
+                ((cx - w / 2) / w) ** 2 +
+                ((cy - h / 2) / h) ** 2
             )
 
-            center_score = max(0, 1 - center_dist * 2)
+            center_score = max(0.0, 1 - center_dist * 2)
 
             score = 0.6 * face_area + 0.4 * center_score
             scores.append(score)
 
-        return max(scores)
+        return float(max(scores))
 
     except Exception:
-        return 0
+        return 0.0
 
 
-def main():
-
+def main() -> None:
     df = pd.read_csv(INPUT)
 
     rows = []
 
-    for p in df["file_path"]:
+    for p in tqdm(df["file_path"], total=len(df), desc="Computing subject", unit="img"):
         rows.append((p, compute_subject(Path(p))))
 
     out = pd.DataFrame(rows, columns=[
         "file_path",
-        "subject_score"
+        "subject_score",
     ])
 
     out.to_csv(OUT, index=False)

@@ -1,76 +1,65 @@
-import pandas as pd
-import shutil
 from pathlib import Path
+import shutil
+import pandas as pd
 
-IN_BEST = r"D:\photo_ai\data\index\best_combined_v7.csv"
-IN_UNIQUE = r"D:\photo_ai\data\index\unique_media.csv"
-IN_GROUPS = r"D:\photo_ai\data\index\similar_groups.csv"
+INDEX_DIR = Path(r"D:\photo_ai\data\index")
+OUT_DIR = Path(r"D:\photo_ai\data\output")
 
-OUT_DIR = Path(r"D:\photo_ai\photo_library_v7")
-
-
-def safe_copy(src: Path, dest_dir: Path) -> Path:
-    target = dest_dir / src.name
-    i = 1
-    while target.exists():
-        target = dest_dir / f"{src.stem}_{i}{src.suffix}"
-        i += 1
-    shutil.copy2(src, target)
-    return target
+IN_BEST = INDEX_DIR / "best_combined.csv"
+IN_REVIEW = INDEX_DIR / "review_groups.csv"
+IN_GROUPS = INDEX_DIR / "similar_groups.csv"
 
 
-def copy_json_if_exists(json_path_value, dest_dir: Path):
-    if not json_path_value or str(json_path_value) == "0":
-        return None
-
-    src = Path(str(json_path_value))
-    if not src.exists():
-        return None
-
-    return safe_copy(src, dest_dir)
+def safe_name(p: str) -> str:
+    return Path(p).name
 
 
 def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     best = pd.read_csv(IN_BEST)
-    unique = pd.read_csv(IN_UNIQUE)
+    review = pd.read_csv(IN_REVIEW)
     groups = pd.read_csv(IN_GROUPS)
 
-    grouped_files = set(groups["file_path"].astype(str))
+    best_dir = OUT_DIR / "best"
+    review_dir = OUT_DIR / "review"
+    best_dir.mkdir(exist_ok=True)
+    review_dir.mkdir(exist_ok=True)
 
-    copied_media = 0
-    copied_json = 0
+    group_to_best = dict(zip(best["group_id"], best["file_path"]))
 
-    # 1. Лучшие из групп
-    for row in best.itertuples(index=False):
-        src = Path(row.file_path)
+    copied_best = 0
+    copied_review = 0
+
+    for _, row in best.iterrows():
+        src = Path(row["file_path"])
         if src.exists():
-            safe_copy(src, OUT_DIR)
-            copied_media += 1
+            dst = best_dir / safe_name(str(src))
+            shutil.copy2(src, dst)
+            copied_best += 1
 
-        json_path = getattr(row, "json_path", None)
-        if json_path:
-            if copy_json_if_exists(json_path, OUT_DIR):
-                copied_json += 1
+    review_group_ids = set(review["group_id"].dropna().tolist()) if "group_id" in review.columns else set()
 
-    # 2. Уникальные одиночные фото, не входящие в группы
-    singles = unique[~unique["file_path"].astype(str).isin(grouped_files)].copy()
+    if review_group_ids:
+        review_rows = groups[groups["group_id"].isin(review_group_ids)].copy()
+        for _, row in review_rows.iterrows():
+            src = Path(row["file_path"])
+            if not src.exists():
+                continue
+            group_id = row["group_id"]
+            group_dir = review_dir / f"group_{group_id}"
+            group_dir.mkdir(exist_ok=True)
+            dst = group_dir / safe_name(str(src))
+            shutil.copy2(src, dst)
+            copied_review += 1
 
-    for row in singles.itertuples(index=False):
-        src = Path(row.file_path)
-        if src.exists():
-            safe_copy(src, OUT_DIR)
-            copied_media += 1
-
-        json_path = getattr(row, "json_path", None)
-        if json_path:
-            if copy_json_if_exists(json_path, OUT_DIR):
-                copied_json += 1
-
-    print("media_copied =", copied_media)
-    print("json_copied =", copied_json)
-    print("saved_to =", OUT_DIR)
+    print(f"best_source = {IN_BEST}")
+    print(f"review_source = {IN_REVIEW}")
+    print(f"groups_source = {IN_GROUPS}")
+    print(f"copied_best = {copied_best}")
+    print(f"copied_review = {copied_review}")
+    print(f"best_dir = {best_dir}")
+    print(f"review_dir = {review_dir}")
 
 
 if __name__ == "__main__":
