@@ -1,0 +1,2 @@
+Запуск вьюера
+streamlit run Scripts/review_app.py
