@@ -6,10 +6,15 @@ from PIL import Image
 from pillow_heif import register_heif_opener
 from tqdm import tqdm
 
+from Scripts.config_paths import (
+    SIMILAR_GROUPS_CSV,
+    COMPOSITION_SCORES_CSV,
+)
+
 register_heif_opener()
 
-INPUT = r"D:\photo_ai\data\index\similar_groups.csv"
-OUT = r"D:\photo_ai\data\index\composition_scores.csv"
+INPUT = SIMILAR_GROUPS_CSV
+OUT = COMPOSITION_SCORES_CSV
 
 cascade = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"

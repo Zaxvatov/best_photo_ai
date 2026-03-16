@@ -1,16 +1,66 @@
 import pandas as pd
 from pathlib import Path
 
-IN_GROUPS = Path(r"D:\photo_ai\data\index\similar_groups.csv")
-IN_SHARPNESS = Path(r"D:\photo_ai\data\index\sharpness.csv")
-IN_COMPOSITION = Path(r"D:\photo_ai\data\index\composition_scores.csv")
-IN_FACE_METRICS = Path(r"D:\photo_ai\data\index\face_metrics.csv")
-IN_SUBJECT = Path(r"D:\photo_ai\data\index\subject_scores.csv")
-IN_AESTHETIC = Path(r"D:\photo_ai\data\index\aesthetic_scores.csv")
-IN_MEDIA = Path(r"D:\photo_ai\data\index\media_index.csv")
+import config_paths as cfg
 
-OUT_BEST = Path(r"D:\photo_ai\data\index\best_combined.csv")
-OUT_REVIEW = Path(r"D:\photo_ai\data\index\review_groups.csv")
+
+def _path_from_cfg(*names: str, default: str) -> Path:
+    for name in names:
+        if hasattr(cfg, name):
+            value = getattr(cfg, name)
+            if value:
+                return Path(value)
+    return Path(default)
+
+
+IN_GROUPS = _path_from_cfg(
+    "SIMILAR_GROUPS_CSV",
+    "GROUPS_SOURCE",
+    "IN_GROUPS",
+    default=r"D:\photo_ai\data\index\similar_groups.csv",
+)
+IN_SHARPNESS = _path_from_cfg(
+    "SHARPNESS_SCORES_CSV",
+    "SHARPNESS_CSV",
+    "IN_SHARPNESS",
+    default=r"D:\photo_ai\data\index\sharpness_scores.csv",
+)
+IN_COMPOSITION = _path_from_cfg(
+    "COMPOSITION_SCORES_CSV",
+    "IN_COMPOSITION",
+    default=r"D:\photo_ai\data\index\composition_scores.csv",
+)
+IN_FACE_METRICS = _path_from_cfg(
+    "FACE_METRICS_CSV",
+    "IN_FACE_METRICS",
+    default=r"D:\photo_ai\data\index\face_metrics.csv",
+)
+IN_SUBJECT = _path_from_cfg(
+    "SUBJECT_SCORES_CSV",
+    "IN_SUBJECT",
+    default=r"D:\photo_ai\data\index\subject_scores.csv",
+)
+IN_AESTHETIC = _path_from_cfg(
+    "AESTHETIC_SCORES_CSV",
+    "IN_AESTHETIC",
+    default=r"D:\photo_ai\data\index\aesthetic_scores.csv",
+)
+IN_MEDIA = _path_from_cfg(
+    "MEDIA_INDEX_CSV",
+    "IN_MEDIA",
+    default=r"D:\photo_ai\data\index\media_index.csv",
+)
+
+OUT_BEST = _path_from_cfg(
+    "BEST_COMBINED_CSV",
+    "OUT_BEST",
+    default=r"D:\photo_ai\data\index\best_combined.csv",
+)
+OUT_REVIEW = _path_from_cfg(
+    "REVIEW_GROUPS_CSV",
+    "OUT_REVIEW",
+    default=r"D:\photo_ai\data\index\review_groups.csv",
+)
 
 
 def norm_by_group(series, groups):
@@ -29,12 +79,12 @@ def load_subject_data():
     if IN_FACE_METRICS.exists():
         df = pd.read_csv(IN_FACE_METRICS)
         if {"file_path", "faces", "face_symmetry"}.issubset(df.columns):
-            return df, "face_metrics"
+            return df, "face_metrics", str(IN_FACE_METRICS)
 
     if IN_SUBJECT.exists():
         df = pd.read_csv(IN_SUBJECT)
         if {"file_path", "subject_score"}.issubset(df.columns):
-            return df, "subject_scores"
+            return df, "subject_scores", str(IN_SUBJECT)
 
     raise FileNotFoundError(
         "Не найден совместимый файл subject/face метрик. "
@@ -46,7 +96,7 @@ def main():
     g = pd.read_csv(IN_GROUPS)
     s = pd.read_csv(IN_SHARPNESS)
     c = pd.read_csv(IN_COMPOSITION)
-    subj, subject_mode = load_subject_data()
+    subj, subject_mode, subject_source = load_subject_data()
     a = pd.read_csv(IN_AESTHETIC)
     m = pd.read_csv(IN_MEDIA)[["file_path", "width", "height", "file_size", "json_path"]]
 
@@ -110,7 +160,9 @@ def main():
     review["is_best"] = review["file_path"] == review["best_file"]
     review.to_csv(OUT_REVIEW, index=False, encoding="utf-8-sig")
 
+    print("sharpness_source =", IN_SHARPNESS)
     print("subject_mode =", subject_mode)
+    print("subject_source =", subject_source)
     print("groups_processed =", len(best))
     print("best_saved_to =", OUT_BEST)
     print("review_saved_to =", OUT_REVIEW)

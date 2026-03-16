@@ -16,7 +16,7 @@ MODEL_PATH = r"D:\photo_ai\models\sa_0_4_vit_l_14_linear.pth"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 model, _, preprocess = open_clip.create_model_and_transforms(
-    "ViT-L-14",
+    "ViT-L-14-quickgelu",
     pretrained="openai"
 )
 
@@ -24,7 +24,9 @@ model = model.to(device)
 model.eval()
 
 predictor = torch.nn.Linear(768, 1)
-predictor.load_state_dict(torch.load(MODEL_PATH, map_location=device))
+predictor.load_state_dict(
+    torch.load(MODEL_PATH, map_location=device, weights_only=True)
+)
 predictor = predictor.to(device)
 predictor.eval()
 

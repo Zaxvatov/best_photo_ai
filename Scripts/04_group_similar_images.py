@@ -1,11 +1,12 @@
 import pandas as pd
 import imagehash
-from pathlib import Path
 from collections import defaultdict
 
-INPUT = r"D:\photo_ai\data\index\analysis_images.csv"
-OUT_PAIRS = r"D:\photo_ai\data\index\similar_pairs.csv"
-OUT_GROUPS = r"D:\photo_ai\data\index\similar_groups.csv"
+from config_paths import (
+    ANALYSIS_IMAGES_CSV,
+    SIMILAR_PAIRS_CSV,
+    SIMILAR_GROUPS_CSV,
+)
 
 # Чем меньше порог, тем строже похожесть
 PHASH_DISTANCE_THRESHOLD = 5
@@ -29,7 +30,7 @@ def build_pairs(df: pd.DataFrame) -> pd.DataFrame:
 
     pairs = []
 
-    for prefix, items in buckets.items():
+    for items in buckets.values():
         n = len(items)
         if n < 2:
             continue
@@ -39,9 +40,9 @@ def build_pairs(df: pd.DataFrame) -> pd.DataFrame:
             for j in range(i + 1, n):
                 file2, phash2 = items[j]
 
-                d = hamming_distance_hex(phash1, phash2)
-                if d <= PHASH_DISTANCE_THRESHOLD:
-                    pairs.append((file1, file2, d))
+                distance = hamming_distance_hex(phash1, phash2)
+                if distance <= PHASH_DISTANCE_THRESHOLD:
+                    pairs.append((file1, file2, distance))
 
     return pd.DataFrame(pairs, columns=["img1", "img2", "distance"])
 
@@ -49,13 +50,13 @@ def build_pairs(df: pd.DataFrame) -> pd.DataFrame:
 def build_groups(pairs: pd.DataFrame) -> pd.DataFrame:
     parent = {}
 
-    def find(x):
+    def find(x: str) -> str:
         parent.setdefault(x, x)
         if parent[x] != x:
             parent[x] = find(parent[x])
         return parent[x]
 
-    def union(a, b):
+    def union(a: str, b: str) -> None:
         ra, rb = find(a), find(b)
         if ra != rb:
             parent[rb] = ra
@@ -75,14 +76,20 @@ def build_groups(pairs: pd.DataFrame) -> pd.DataFrame:
     for files in groups.values():
         if len(files) > 1:
             gid += 1
-            for f in sorted(files):
-                rows.append((gid, f))
+            for file_path in sorted(files):
+                rows.append((gid, file_path))
 
     return pd.DataFrame(rows, columns=["group_id", "file_path"])
 
 
-def main():
-    df = pd.read_csv(INPUT)
+def main() -> None:
+    df = pd.read_csv(ANALYSIS_IMAGES_CSV)
+
+    required_columns = {"file_path", "phash"}
+    missing_columns = required_columns - set(df.columns)
+    if missing_columns:
+        missing_str = ", ".join(sorted(missing_columns))
+        raise ValueError(f"В {ANALYSIS_IMAGES_CSV} отсутствуют обязательные колонки: {missing_str}")
 
     # Берём только записи с phash
     df = df[df["phash"].notna()].copy()
@@ -90,17 +97,17 @@ def main():
     print("images_for_grouping =", len(df))
 
     pairs = build_pairs(df)
-    pairs.to_csv(OUT_PAIRS, index=False, encoding="utf-8-sig")
+    pairs.to_csv(SIMILAR_PAIRS_CSV, index=False, encoding="utf-8-sig")
 
     print("pairs_found =", len(pairs))
-    print("pairs_saved_to =", OUT_PAIRS)
+    print("pairs_saved_to =", SIMILAR_PAIRS_CSV)
 
     groups = build_groups(pairs)
-    groups.to_csv(OUT_GROUPS, index=False, encoding="utf-8-sig")
+    groups.to_csv(SIMILAR_GROUPS_CSV, index=False, encoding="utf-8-sig")
 
     print("groups_found =", groups["group_id"].nunique() if len(groups) else 0)
     print("files_in_groups =", len(groups))
-    print("groups_saved_to =", OUT_GROUPS)
+    print("groups_saved_to =", SIMILAR_GROUPS_CSV)
 
 
 if __name__ == "__main__":

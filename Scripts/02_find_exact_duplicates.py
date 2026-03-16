@@ -1,9 +1,14 @@
 import pandas as pd
-from pathlib import Path
 
-INPUT = r"D:\photo_ai\data\index\media_index.csv"
-OUT_UNIQUE = r"D:\photo_ai\data\index\unique_media.csv"
-OUT_DUPLICATES = r"D:\photo_ai\data\index\exact_duplicates.csv"
+from config_paths import (
+    MEDIA_INDEX_CSV,
+    UNIQUE_MEDIA_CSV,
+    EXACT_DUPLICATES_CSV,
+)
+
+INPUT = MEDIA_INDEX_CSV
+OUT_UNIQUE = UNIQUE_MEDIA_CSV
+OUT_DUPLICATES = EXACT_DUPLICATES_CSV
 
 
 def main():

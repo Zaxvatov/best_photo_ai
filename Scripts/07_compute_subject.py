@@ -6,10 +6,12 @@ from PIL import Image
 from pillow_heif import register_heif_opener
 from tqdm import tqdm
 
+from config_paths import SIMILAR_GROUPS_CSV, SUBJECT_SCORES_CSV
+
 register_heif_opener()
 
-INPUT = r"D:\photo_ai\data\index\similar_groups.csv"
-OUT = r"D:\photo_ai\data\index\subject_scores.csv"
+INPUT = SIMILAR_GROUPS_CSV
+OUT = SUBJECT_SCORES_CSV
 
 CASCADE = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
@@ -40,12 +42,11 @@ def compute_subject(path: Path) -> float:
             cy = y + fh / 2
 
             center_dist = np.sqrt(
-                ((cx - w / 2) / w) ** 2 +
-                ((cy - h / 2) / h) ** 2
+                ((cx - w / 2) / w) ** 2
+                + ((cy - h / 2) / h) ** 2
             )
 
             center_score = max(0.0, 1 - center_dist * 2)
-
             score = 0.6 * face_area + 0.4 * center_score
             scores.append(score)
 
@@ -59,7 +60,6 @@ def main() -> None:
     df = pd.read_csv(INPUT)
 
     rows = []
-
     for p in tqdm(df["file_path"], total=len(df), desc="Computing subject", unit="img"):
         rows.append((p, compute_subject(Path(p))))
 
