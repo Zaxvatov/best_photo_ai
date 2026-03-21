@@ -21,7 +21,7 @@ def get_cfg_path(*names: str):
     )
 
 
-INPUT = get_cfg_path("MEDIA_INDEX")
+INPUT = get_cfg_path("MEDIA_ASSETS")
 OUT_UNIQUE = get_cfg_path("UNIQUE_MEDIA")
 OUT_DUPLICATES = get_cfg_path("EXACT_DUPLICATES")
 
@@ -143,7 +143,7 @@ def canonicalize_group(group: pd.DataFrame) -> tuple[pd.Series, list[dict[str, o
 def ensure_required_columns(df: pd.DataFrame) -> None:
     missing = [column for column in ["sha256", "file_path"] if column not in df.columns]
     if missing:
-        raise KeyError(f"MEDIA_INDEX is missing required columns: {', '.join(missing)}")
+        raise KeyError(f"MEDIA_ASSETS is missing required columns: {', '.join(missing)}")
 
 
 def main():

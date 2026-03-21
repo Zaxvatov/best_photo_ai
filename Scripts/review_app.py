@@ -19,10 +19,19 @@ from html import escape
 import io
 import json
 
+try:
+    import config_paths as cfg
+except ImportError as e:
+    raise SystemExit(
+        "config_paths.py is required for review_app.py to resolve review and curated paths."
+    ) from e
+
 register_heif_opener()
 
-DATA = r"D:\\photo_ai\\data\\index\\review_groups.csv"
-CURATED = Path(r"D:\\photo_ai\\library_curated")
+DATA = str(Path(cfg.REVIEW_GROUPS))
+CURATED = Path(cfg.CURATED_LIBRARY_DIR)
+PHOTO_FEATURES = Path(cfg.PHOTO_FEATURES) if hasattr(cfg, "PHOTO_FEATURES") else None
+PHOTO_SEMANTIC = Path(cfg.PHOTO_SEMANTIC_SCORES) if hasattr(cfg, "PHOTO_SEMANTIC_SCORES") else None
 
 st.set_page_config(layout="wide")
 
@@ -167,6 +176,62 @@ if not Path(DATA).exists():
     st.stop()
 
 df = pd.read_csv(DATA)
+
+
+def merge_optional_artifact(base_df: pd.DataFrame, artifact_path: Path | None, desired_columns: list[str]) -> pd.DataFrame:
+    if artifact_path is None or not artifact_path.exists():
+        return base_df
+
+    missing_columns = [column for column in desired_columns if column not in base_df.columns]
+    if not missing_columns:
+        return base_df
+
+    artifact_df = pd.read_csv(artifact_path)
+    merge_columns = [column for column in desired_columns if column in artifact_df.columns and column not in base_df.columns]
+    if not merge_columns:
+        return base_df
+
+    if "asset_id" not in base_df.columns or "asset_id" not in artifact_df.columns:
+        raise KeyError("Review layer expects asset_id in normalized artifacts.")
+
+    artifact_df = artifact_df[["asset_id", *merge_columns]].drop_duplicates(subset=["asset_id"])
+    return base_df.merge(artifact_df, on="asset_id", how="left")
+
+
+df = merge_optional_artifact(
+    df,
+    PHOTO_FEATURES,
+    [
+        "primary_file_path",
+        "json_path",
+        "album_path",
+        "sidecar_paths",
+        "sidecar_count",
+        "has_sidecar",
+        "width",
+        "height",
+        "file_size",
+        "content_type_file",
+        "sharpness",
+        "subject_placement",
+        "face_coverage",
+        "edge_penalty",
+        "tilt_score",
+        "composition_score",
+        "subject_score",
+    ],
+)
+df = merge_optional_artifact(
+    df,
+    PHOTO_SEMANTIC,
+    [
+        "content_type_group",
+        "content_type_scene",
+        "aesthetic_score",
+        "scene_group_id",
+        "group_id",
+    ],
+)
 
 if "group_id" not in df.columns:
     st.error("Column 'group_id' not found in review file.")

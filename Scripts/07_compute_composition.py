@@ -20,7 +20,7 @@ if str(ROOT_DIR) not in sys.path:
 
 import Scripts.config_paths as cfg
 
-required_vars = ["SIMILAR_GROUPS", "COMPOSITION"]
+required_vars = ["PHOTO_INDEX", "COMPOSITION"]
 missing = [v for v in required_vars if not hasattr(cfg, v)]
 
 if missing:
@@ -29,7 +29,7 @@ if missing:
         f"config_paths.py не содержит: {', '.join(missing)}. Доступные переменные: {available}"
     )
 
-SIMILAR_GROUPS = cfg.SIMILAR_GROUPS
+PHOTO_INDEX = cfg.PHOTO_INDEX
 COMPOSITION = cfg.COMPOSITION
 WORKERS = max(2, min(8, max(2, (os.cpu_count() or 8) // 2)))
 THREAD_LOCAL = threading.local()
@@ -38,7 +38,7 @@ MAX_ANALYSIS_DIM = 960
 register_heif_opener()
 cv2.setNumThreads(1)
 
-INPUT = SIMILAR_GROUPS
+INPUT = PHOTO_INDEX
 OUT = COMPOSITION
 
 

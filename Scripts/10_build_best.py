@@ -1,5 +1,6 @@
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 
 import config_paths as cfg
 
@@ -10,7 +11,7 @@ REQUIRED_CFG_VARS = [
     "COMPOSITION",
     "SUBJECT",
     "AESTHETIC",
-    "MEDIA_INDEX",
+    "PHOTO_INDEX",
     "PHOTO_FEATURES",
     "PHOTO_SEMANTIC_SCORES",
     "BEST_COMBINED",
@@ -34,13 +35,27 @@ IN_SHARPNESS = Path(cfg.SHARPNESS)
 IN_COMPOSITION = Path(cfg.COMPOSITION)
 IN_SUBJECT = Path(cfg.SUBJECT)
 IN_AESTHETIC = Path(cfg.AESTHETIC)
-IN_MEDIA = Path(cfg.MEDIA_INDEX)
+IN_PHOTO_INDEX = Path(cfg.PHOTO_INDEX)
 OUT_PHOTO_FEATURES = Path(cfg.PHOTO_FEATURES)
 OUT_PHOTO_SEMANTIC = Path(cfg.PHOTO_SEMANTIC_SCORES)
 OUT_BEST = Path(cfg.BEST_COMBINED)
 OUT_REVIEW = Path(cfg.REVIEW_GROUPS)
 
 IN_FACE_METRICS = Path(cfg.FACE_METRICS) if hasattr(cfg, "FACE_METRICS") else Path(cfg.INDEX_DIR) / "face_metrics.csv"
+
+FEATURE_SCORE_COLUMNS = [
+    "sharpness",
+    "subject_placement",
+    "face_coverage",
+    "edge_penalty",
+    "tilt_score",
+    "composition_score",
+    "subject_score",
+]
+
+SEMANTIC_COLUMNS = [
+    "aesthetic_score",
+]
 
 
 def norm_by_group(series, groups):
@@ -55,18 +70,33 @@ def minmax_by_group(series, groups):
     return ((series - mn) / denom).clip(lower=0, upper=1)
 
 
-def load_subject_data():
+def ensure_asset_id(metric_df: pd.DataFrame, photo_index_df: pd.DataFrame, source_name: str) -> pd.DataFrame:
+    if "asset_id" in metric_df.columns:
+        return metric_df
+    if "file_path" not in metric_df.columns:
+        raise KeyError(f"{source_name} must contain asset_id or file_path.")
+
+    asset_lookup = photo_index_df[["asset_id", "file_path"]].dropna(subset=["asset_id", "file_path"])
+    asset_lookup = asset_lookup.drop_duplicates(subset=["asset_id"])
+    merged = metric_df.merge(asset_lookup, on="file_path", how="left")
+    if "asset_id" not in merged.columns or merged["asset_id"].isna().any():
+        missing_count = int(merged["asset_id"].isna().sum()) if "asset_id" in merged.columns else len(merged)
+        raise ValueError(f"{source_name} could not be mapped to asset_id for {missing_count} rows.")
+    return merged
+
+
+def load_subject_data(photo_index_df: pd.DataFrame):
     if IN_FACE_METRICS.exists():
         df = pd.read_csv(IN_FACE_METRICS)
         if {"file_path", "faces", "face_symmetry"}.issubset(df.columns):
-            return df, "face_metrics", str(IN_FACE_METRICS)
+            return ensure_asset_id(df, photo_index_df, str(IN_FACE_METRICS)), "face_metrics", str(IN_FACE_METRICS)
 
     df = pd.read_csv(IN_SUBJECT)
     if {"file_path", "subject_score"}.issubset(df.columns):
-        return df, "subject_scores", str(IN_SUBJECT)
+        return ensure_asset_id(df, photo_index_df, str(IN_SUBJECT)), "subject_scores", str(IN_SUBJECT)
 
     raise ValueError(
-        f"Файл {IN_SUBJECT} должен содержать колонки file_path и subject_score. "
+        f"Файл {IN_SUBJECT} должен содержать colонки file_path и subject_score. "
         f"Найдено: {list(df.columns)}"
     )
 
@@ -76,34 +106,129 @@ def join_tags(values) -> str:
     return ", ".join(tags)
 
 
-def merge_metric(df: pd.DataFrame, metric_df: pd.DataFrame, prefer_asset: bool = True) -> pd.DataFrame:
+def dedupe_subset(df: pd.DataFrame) -> pd.DataFrame:
+    if "asset_id" not in df.columns:
+        raise KeyError("Expected asset_id in normalized photo pipeline dataframe.")
+    return df.drop_duplicates(subset=["asset_id"])
+
+
+def merge_metric(df: pd.DataFrame, metric_df: pd.DataFrame) -> pd.DataFrame:
     metric = metric_df.copy()
-    if prefer_asset and "asset_id" in df.columns and "asset_id" in metric.columns:
-        drop_cols = [column for column in metric.columns if column in df.columns and column not in {"asset_id"}]
-        if drop_cols:
-            metric = metric.drop(columns=drop_cols)
-        metric = metric.drop_duplicates(subset=["asset_id"])
-        return df.merge(metric, on="asset_id", how="left")
-    if "file_path" not in metric.columns:
-        raise KeyError("Metric dataframe must contain file_path when asset_id merge is unavailable.")
-    drop_cols = [column for column in metric.columns if column in df.columns and column not in {"file_path"}]
+    if "asset_id" not in df.columns or "asset_id" not in metric.columns:
+        raise KeyError("Active photo pipeline requires asset_id for metric merges.")
+    drop_cols = [column for column in metric.columns if column in df.columns and column != "asset_id"]
     if drop_cols:
         metric = metric.drop(columns=drop_cols)
-    metric = metric.drop_duplicates(subset=["file_path"])
-    return df.merge(metric, on="file_path", how="left")
+    metric = dedupe_subset(metric)
+    return df.merge(metric, on="asset_id", how="left")
 
 
-def save_photo_artifacts(df: pd.DataFrame) -> None:
+def fill_default_columns(df: pd.DataFrame, columns: list[str], default=0) -> pd.DataFrame:
+    for column in columns:
+        if column not in df.columns:
+            df[column] = default
+    return df
+
+
+def build_photo_features(photo_index_df: pd.DataFrame) -> tuple[pd.DataFrame, str, str, str]:
+    feature_df = photo_index_df.copy()
+
+    sharpness_df = ensure_asset_id(pd.read_csv(IN_SHARPNESS), photo_index_df, str(IN_SHARPNESS))
+    composition_df = ensure_asset_id(pd.read_csv(IN_COMPOSITION), photo_index_df, str(IN_COMPOSITION))
+    subject_df, subject_mode, subject_source = load_subject_data(photo_index_df)
+
+    feature_df = merge_metric(feature_df, sharpness_df)
+    feature_df = merge_metric(feature_df, composition_df)
+    feature_df = merge_metric(feature_df, subject_df)
+    feature_df = fill_default_columns(feature_df, FEATURE_SCORE_COLUMNS, 0)
+
+    if "content_type_file" not in feature_df.columns:
+        feature_df["content_type_file"] = ""
+
+    return dedupe_subset(feature_df), str(IN_SHARPNESS), subject_mode, subject_source
+
+
+def build_photo_semantic(feature_df: pd.DataFrame, groups_df: pd.DataFrame) -> pd.DataFrame:
+    semantic_base_cols = [
+        column
+        for column in [
+            "asset_id",
+            "content_type_file",
+            "subject_score",
+        ]
+        if column in feature_df.columns
+    ]
+    semantic_df = dedupe_subset(feature_df[semantic_base_cols].copy())
+
+    aesthetic_df = ensure_asset_id(pd.read_csv(IN_AESTHETIC), feature_df, str(IN_AESTHETIC))
+    semantic_df = merge_metric(semantic_df, aesthetic_df)
+    semantic_df = fill_default_columns(semantic_df, SEMANTIC_COLUMNS, 0)
+
+    group_cols = [
+        column
+        for column in [
+            "asset_id",
+            "group_id",
+            "scene_group_id",
+        ]
+        if column in groups_df.columns
+    ]
+    grouped_assets = dedupe_subset(groups_df[group_cols].copy())
+    semantic_df = merge_metric(semantic_df, grouped_assets)
+
+    if "content_type_file" not in semantic_df.columns:
+        semantic_df["content_type_file"] = ""
+
+    semantic_df["content_type_group"] = semantic_df["content_type_file"]
+    if "group_id" in semantic_df.columns:
+        group_mask = semantic_df["group_id"].notna()
+        semantic_df.loc[group_mask, "content_type_group"] = (
+            semantic_df.loc[group_mask]
+            .groupby("group_id")["content_type_file"]
+            .transform(join_tags)
+        )
+    else:
+        semantic_df["group_id"] = pd.NA
+
+    semantic_df["content_type_scene"] = semantic_df["content_type_group"]
+    if "scene_group_id" in semantic_df.columns:
+        scene_mask = semantic_df["scene_group_id"].notna()
+        semantic_df.loc[scene_mask, "content_type_scene"] = (
+            semantic_df.loc[scene_mask]
+            .groupby("scene_group_id")["content_type_file"]
+            .transform(join_tags)
+        )
+    else:
+        semantic_df["scene_group_id"] = pd.NA
+
+    return dedupe_subset(semantic_df)
+
+
+def save_photo_artifacts(feature_df: pd.DataFrame, semantic_df: pd.DataFrame) -> None:
     feature_cols = [
         column
         for column in [
             "asset_id",
             "file_path",
             "primary_file_path",
+            "file_name",
+            "extension",
+            "file_size",
+            "created_at_fs",
+            "sha256",
+            "phash",
             "width",
             "height",
-            "file_size",
-            "pixels",
+            "exif_datetime",
+            "json_datetime",
+            "json_path",
+            "album_path",
+            "mime_type",
+            "is_image",
+            "is_video",
+            "sidecar_paths",
+            "sidecar_count",
+            "has_sidecar",
             "content_type_file",
             "sharpness",
             "subject_placement",
@@ -113,7 +238,7 @@ def save_photo_artifacts(df: pd.DataFrame) -> None:
             "composition_score",
             "subject_score",
         ]
-        if column in df.columns
+        if column in feature_df.columns
     ]
     semantic_cols = [
         column
@@ -128,71 +253,84 @@ def save_photo_artifacts(df: pd.DataFrame) -> None:
             "scene_group_id",
             "group_id",
         ]
-        if column in df.columns
+        if column in semantic_df.columns
     ]
 
-    feature_df = df[feature_cols].drop_duplicates(subset=["asset_id"] if "asset_id" in df.columns else ["file_path"]).copy()
-    semantic_df = df[semantic_cols].drop_duplicates(subset=["asset_id"] if "asset_id" in df.columns else ["file_path"]).copy()
-
     OUT_PHOTO_FEATURES.parent.mkdir(parents=True, exist_ok=True)
-    feature_df.to_csv(OUT_PHOTO_FEATURES, index=False, encoding="utf-8-sig")
-    semantic_df.to_csv(OUT_PHOTO_SEMANTIC, index=False, encoding="utf-8-sig")
+    dedupe_subset(feature_df[feature_cols].copy()).to_csv(OUT_PHOTO_FEATURES, index=False, encoding="utf-8-sig")
+    dedupe_subset(semantic_df[semantic_cols].copy()).to_csv(OUT_PHOTO_SEMANTIC, index=False, encoding="utf-8-sig")
+
+
+def fill_numeric_defaults(df: pd.DataFrame) -> pd.DataFrame:
+    numeric_defaults = {
+        "sharpness": 0,
+        "subject_placement": 0,
+        "face_coverage": 0,
+        "edge_penalty": 0,
+        "tilt_score": 0,
+        "composition_score": 0,
+        "subject_score": 0,
+        "aesthetic_score": 0,
+        "width": 0,
+        "height": 0,
+        "file_size": 0,
+        "sidecar_count": 0,
+    }
+    for column, default in numeric_defaults.items():
+        if column not in df.columns:
+            df[column] = default
+        else:
+            df[column] = pd.to_numeric(df[column], errors="coerce").fillna(default)
+
+    string_defaults = [
+        "content_type_file",
+        "content_type_group",
+        "content_type_scene",
+        "primary_file_path",
+        "sidecar_paths",
+        "json_path",
+        "album_path",
+    ]
+    for column in string_defaults:
+        if column not in df.columns:
+            df[column] = ""
+        else:
+            df[column] = df[column].fillna("")
+
+    if "has_sidecar" in df.columns:
+        df["has_sidecar"] = df["has_sidecar"].fillna(False)
+
+    return df
 
 
 def main():
-    g = pd.read_csv(IN_GROUPS)
-    s = pd.read_csv(IN_SHARPNESS)
-    c = pd.read_csv(IN_COMPOSITION)
-    subj, subject_mode, subject_source = load_subject_data()
-    a = pd.read_csv(IN_AESTHETIC)
-    desired_media_cols = [
-        "file_path",
-        "asset_id",
-        "primary_file_path",
-        "sidecar_paths",
-        "sidecar_count",
-        "has_sidecar",
-        "width",
-        "height",
-        "file_size",
-        "json_path",
-    ]
-    media_df = pd.read_csv(IN_MEDIA)
-    if "content_type_file" in media_df.columns:
-        desired_media_cols.append("content_type_file")
-    media_cols = [
-        column
-        for column in desired_media_cols
-        if column in media_df.columns and (column == "file_path" or column not in g.columns)
-    ]
-    m = media_df[media_cols]
+    groups_df = pd.read_csv(IN_GROUPS)
+    photo_index_df = pd.read_csv(IN_PHOTO_INDEX)
 
-    df = g.copy()
-    df = merge_metric(df, s)
-    df = merge_metric(df, c)
-    df = merge_metric(df, subj)
-    df = merge_metric(df, a)
-    df = merge_metric(df, m, prefer_asset=False)
+    feature_df, sharpness_source, subject_mode, subject_source = build_photo_features(photo_index_df)
+    semantic_df = build_photo_semantic(feature_df, groups_df)
+    save_photo_artifacts(feature_df, semantic_df)
 
-    df = df.fillna(0)
+    df = groups_df.copy()
+    df = merge_metric(df, feature_df)
+    df = merge_metric(df, semantic_df)
+    df = fill_numeric_defaults(df)
+
     df["pixels"] = df["width"] * df["height"]
-    if "content_type_file" not in df.columns:
-        df["content_type_file"] = ""
 
-    if "scene_group_id" in df.columns:
-        scene_sizes = df.groupby("scene_group_id")["file_path"].transform("size")
-        scene_group_counts = df.groupby("scene_group_id")["group_id"].transform("nunique")
-        df["scene_group_size"] = scene_sizes
-        df["scene_group_group_count"] = scene_group_counts
-        df["scene_merge_candidate"] = scene_group_counts > 1
-        df["content_type_scene"] = df.groupby("scene_group_id")["content_type_file"].transform(join_tags)
-    else:
-        df["scene_group_size"] = 1
-        df["scene_group_group_count"] = 1
-        df["scene_merge_candidate"] = False
+    if "scene_group_id" not in df.columns:
+        df["scene_group_id"] = df["group_id"]
+
+    scene_sizes = df.groupby("scene_group_id")["file_path"].transform("size")
+    scene_group_counts = df.groupby("scene_group_id")["group_id"].transform("nunique")
+    df["scene_group_size"] = scene_sizes
+    df["scene_group_group_count"] = scene_group_counts
+    df["scene_merge_candidate"] = scene_group_counts > 1
+
+    if "content_type_scene" not in df.columns:
         df["content_type_scene"] = df["content_type_file"]
-
-    df["content_type_group"] = df.groupby("group_id")["content_type_file"].transform(join_tags)
+    if "content_type_group" not in df.columns:
+        df["content_type_group"] = df["content_type_file"]
 
     df["sharpness_n"] = norm_by_group(df["sharpness"], df["group_id"])
     df["pixels_n"] = norm_by_group(df["pixels"], df["group_id"])
@@ -221,7 +359,6 @@ def main():
         )
     else:
         df["subject_n"] = minmax_by_group(df["subject_score"], df["group_id"])
-
         df["final_score"] = (
             0.34 * df["subject_n"] +
             0.24 * df["composition_score"] +
@@ -230,26 +367,21 @@ def main():
             0.04 * df["pixels_n"]
         )
 
-    save_photo_artifacts(df)
-
     best = df.sort_values("final_score", ascending=False).groupby("group_id").first().reset_index()
     best.to_csv(OUT_BEST, index=False, encoding="utf-8-sig")
 
-    best_key_cols = ["group_id", "file_path", "final_score"]
-    rename_map = {"file_path": "best_file", "final_score": "best_score"}
-    if "asset_id" in best.columns:
-        best_key_cols.append("asset_id")
-        rename_map["asset_id"] = "best_asset_id"
+    best_key_cols = ["group_id", "asset_id", "file_path", "final_score"]
+    rename_map = {"asset_id": "best_asset_id", "file_path": "best_file", "final_score": "best_score"}
 
     review = df.merge(
         best[best_key_cols].rename(columns=rename_map),
         on="group_id",
-        how="left"
+        how="left",
     )
-    review["is_best"] = review["file_path"] == review["best_file"]
+    review["is_best"] = review["asset_id"] == review["best_asset_id"]
     review.to_csv(OUT_REVIEW, index=False, encoding="utf-8-sig")
 
-    print("sharpness_source =", IN_SHARPNESS)
+    print("sharpness_source =", sharpness_source)
     print("subject_mode =", subject_mode)
     print("subject_source =", subject_source)
     print("photo_features_saved_to =", OUT_PHOTO_FEATURES)

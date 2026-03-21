@@ -17,7 +17,7 @@ import config_paths as cfg
 
 REQUIRED_CONFIG_ATTRS = (
     "INDEX_DIR",
-    "ANALYSIS_IMAGES",
+    "PHOTO_INDEX",
     "SHARPNESS",
 )
 WORKERS = max(2, min(16, (os.cpu_count() or 8)))
@@ -39,9 +39,9 @@ def resolve_io_paths(index_dir: Path | None) -> tuple[Path, Path]:
     validate_config()
 
     if index_dir is None:
-        return Path(cfg.ANALYSIS_IMAGES), Path(cfg.SHARPNESS)
+        return Path(cfg.PHOTO_INDEX), Path(cfg.SHARPNESS)
 
-    return index_dir / Path(cfg.ANALYSIS_IMAGES).name, index_dir / Path(cfg.SHARPNESS).name
+    return index_dir / Path(cfg.PHOTO_INDEX).name, index_dir / Path(cfg.SHARPNESS).name
 
 
 def compute_sharpness(image_path: Path) -> float:
@@ -72,14 +72,14 @@ def compute_row(row: dict[str, object], path_column: str) -> dict[str, object]:
 
 
 def main(index_dir: Path | None = None) -> None:
-    analysis_path, output_path = resolve_io_paths(index_dir)
+    photo_index_path, output_path = resolve_io_paths(index_dir)
 
-    if not analysis_path.exists():
-        raise FileNotFoundError(f"Не найден файл: {analysis_path}")
+    if not photo_index_path.exists():
+        raise FileNotFoundError(f"Не найден файл: {photo_index_path}")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    df = pd.read_csv(analysis_path)
+    df = pd.read_csv(photo_index_path)
 
     path_column = None
     for candidate in ("file_path", "path", "full_path"):

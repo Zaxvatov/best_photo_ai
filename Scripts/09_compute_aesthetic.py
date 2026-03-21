@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+import sys
 
 import open_clip
 import pandas as pd
@@ -9,18 +10,18 @@ import torch
 from PIL import Image
 from pillow_heif import register_heif_opener
 from torch.utils.data import DataLoader, Dataset
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
 try:
     import config_paths as cfg
 except ImportError as e:
     raise ImportError(
-        "config_paths.py должен содержать переменные INDEX_DIR, SIMILAR_GROUPS, AESTHETIC, MODELS_DIR и AESTHETIC_MODEL"
+        "config_paths.py должен содержать переменные INDEX_DIR, PHOTO_INDEX, AESTHETIC, MODELS_DIR и AESTHETIC_MODEL"
     ) from e
 
 register_heif_opener()
 
-REQUIRED_VARS = ["INDEX_DIR", "SIMILAR_GROUPS", "AESTHETIC", "MODELS_DIR", "AESTHETIC_MODEL"]
+REQUIRED_VARS = ["INDEX_DIR", "PHOTO_INDEX", "AESTHETIC", "MODELS_DIR", "AESTHETIC_MODEL"]
 missing = [name for name in REQUIRED_VARS if not hasattr(cfg, name)]
 if missing:
     available = sorted(name for name in dir(cfg) if name.isupper())
@@ -81,7 +82,7 @@ def collate_aesthetic(batch: list[dict[str, object]]) -> dict[str, object]:
 
 
 def resolve_paths() -> tuple[Path, Path, Path]:
-    return Path(cfg.SIMILAR_GROUPS), Path(cfg.AESTHETIC), Path(cfg.AESTHETIC_MODEL)
+    return Path(cfg.PHOTO_INDEX), Path(cfg.AESTHETIC), Path(cfg.AESTHETIC_MODEL)
 
 
 def validate_paths(input_path: Path, model_path: Path) -> None:
@@ -230,7 +231,18 @@ def main() -> None:
         persistent_workers=num_workers > 0,
         collate_fn=collate_aesthetic,
     )
-    for batch in tqdm(loader, total=len(loader), desc="Aesthetic scoring", unit="batch"):
+    progress = tqdm(
+        loader,
+        total=len(loader),
+        desc="Aesthetic scoring",
+        unit="batch",
+        file=sys.stdout,
+        dynamic_ncols=False,
+        ascii=True,
+        position=0,
+        leave=True,
+    )
+    for batch in progress:
         scored_rows.extend(batch["invalid_rows"])
         tensors = batch["tensors"]
         if tensors is None:

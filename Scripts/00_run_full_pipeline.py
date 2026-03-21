@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import codecs
 import locale
+import os
 import shutil
 import subprocess
 import sys
@@ -20,6 +21,17 @@ if str(SCRIPT_DIR) not in sys.path:
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(errors="replace")
+    except Exception:
+        pass
+if hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(errors="replace")
+    except Exception:
+        pass
 
 CONFIG_PATHS_FILE = SCRIPT_DIR / "config_paths.py"
 
@@ -69,11 +81,12 @@ ensure_runtime_dirs = None
 # Configuration
 # =========================
 
+# Current orchestrator covers the photo pipeline only.
 PIPELINE = [
     "01_preflight_archives.py",
     "02_scan_takeout.py",
     "03_find_exact_duplicates.py",
-    "04_prepare_analysis_images.py",
+    "04_prepare_photo_index.py",
     "05_group_similar_images.py",
     "06_compute_sharpness.py",
     "07_compute_composition.py",
@@ -84,6 +97,7 @@ PIPELINE = [
 
 CLEAN_DIRS = [INDEX_DIR, LOGS_DIR, OUTPUT_DIR]
 CLEAN_FILE_EXTENSIONS = {".log", ".tmp", ".bak"}
+PREFLIGHT_STOP_EXIT_CODE = 40
 
 
 @dataclass(frozen=True)
@@ -101,6 +115,18 @@ def format_seconds(seconds: float) -> str:
     if h > 0:
         return f"{h:02d}:{m:02d}:{s:02d}"
     return f"{m:02d}:{s:02d}"
+
+
+def safe_console_write(text: str) -> None:
+    encoding = sys.stdout.encoding or "utf-8"
+    try:
+        sys.stdout.write(text)
+    except UnicodeEncodeError:
+        if hasattr(sys.stdout, "buffer"):
+            sys.stdout.buffer.write(text.encode(encoding, errors="replace"))
+        else:
+            sys.stdout.write(text.encode(encoding, errors="replace").decode(encoding, errors="replace"))
+    sys.stdout.flush()
 
 
 def ensure_exists(paths: Iterable[Path]) -> None:
@@ -233,6 +259,10 @@ def run_step(script_name: str) -> StepResult:
     log_path = LOGS_DIR / f"{script_path.stem}.log"
     command = build_command(script_path)
 
+    child_env = os.environ.copy()
+    child_env["PYTHONIOENCODING"] = "utf-8"
+    child_env["PYTHONUTF8"] = "1"
+
     start = time.perf_counter()
     with log_path.open("w", encoding="utf-8", errors="replace") as log_file:
         log_file.write(f"COMMAND: {' '.join(command)}\n")
@@ -242,6 +272,7 @@ def run_step(script_name: str) -> StepResult:
         process = subprocess.Popen(
             command,
             cwd=str(PROJECT_ROOT),
+            env=child_env,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=False,
@@ -250,8 +281,7 @@ def run_step(script_name: str) -> StepResult:
 
         assert process.stdout is not None
 
-        stream_encoding = locale.getpreferredencoding(False) or sys.stdout.encoding or "utf-8"
-        decoder = codecs.getincrementaldecoder(stream_encoding)(errors="replace")
+        decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
 
         while True:
             chunk = process.stdout.read(1)
@@ -260,15 +290,13 @@ def run_step(script_name: str) -> StepResult:
 
             text = decoder.decode(chunk)
             if text:
-                sys.stdout.write(text)
-                sys.stdout.flush()
+                safe_console_write(text)
                 log_file.write(text)
                 log_file.flush()
 
         tail = decoder.decode(b"", final=True)
         if tail:
-            sys.stdout.write(tail)
-            sys.stdout.flush()
+            safe_console_write(tail)
             log_file.write(tail)
             log_file.flush()
 
@@ -289,7 +317,12 @@ def print_summary(results: list[StepResult]) -> None:
     total_time = 0.0
     for result in results:
         total_time += result.duration_sec
-        status = "OK" if result.return_code == 0 else f"FAIL ({result.return_code})"
+        if result.return_code == 0:
+            status = "OK"
+        elif result.script_name == "01_preflight_archives.py" and result.return_code == PREFLIGHT_STOP_EXIT_CODE:
+            status = "STOP"
+        else:
+            status = f"FAIL ({result.return_code})"
         print(
             f"{result.script_name:<28}  {status:<10}  "
             f"{format_seconds(result.duration_sec):>8}  {result.log_path}"
@@ -346,6 +379,12 @@ def main() -> int:
             print(f"[{index}/{len(PIPELINE)}] Running {script_name}...")
             result = run_step(script_name)
             results.append(result)
+
+            if script_name == "01_preflight_archives.py" and result.return_code == PREFLIGHT_STOP_EXIT_CODE:
+                print("\nPipeline stopped after archive preflight by user choice.")
+                print(f"See log: {result.log_path}")
+                print_summary(results)
+                return 0
 
             if result.return_code != 0:
                 print(f"\nERROR: {script_name} failed.")

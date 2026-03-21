@@ -23,8 +23,7 @@ import config_paths
 missing = []
 
 RAW_TAKEOUT_DIR = getattr(config_paths, "RAW_TAKEOUT_DIR", None)
-MEDIA_INDEX = getattr(config_paths, "MEDIA_INDEX", None)
-MEDIA_ASSETS = getattr(config_paths, "MEDIA_ASSETS", MEDIA_INDEX)
+MEDIA_ASSETS = getattr(config_paths, "MEDIA_ASSETS", None)
 RAW_FILES_INDEX = getattr(config_paths, "RAW_FILES_INDEX", None)
 ORPHAN_SIDECARS = getattr(config_paths, "ORPHAN_SIDECARS", None)
 ARCHIVES_FOUND = getattr(config_paths, "ARCHIVES_FOUND", None)
@@ -32,8 +31,8 @@ AUDIT_REPORT = getattr(config_paths, "AUDIT_REPORT", None)
 
 if RAW_TAKEOUT_DIR is None:
     missing.append("RAW_TAKEOUT_DIR")
-if MEDIA_INDEX is None:
-    missing.append("MEDIA_INDEX")
+if MEDIA_ASSETS is None:
+    missing.append("MEDIA_ASSETS")
 if RAW_FILES_INDEX is None:
     missing.append("RAW_FILES_INDEX")
 if ORPHAN_SIDECARS is None:
@@ -348,7 +347,6 @@ def build_media_asset(path: Path, root: Path) -> MediaAssetRecord:
 def validate_paths() -> tuple[Path, dict[str, Path]]:
     root = Path(RAW_TAKEOUT_DIR)
     outputs = {
-        "media_index": Path(MEDIA_INDEX),
         "media_assets": Path(MEDIA_ASSETS),
         "raw_files": Path(RAW_FILES_INDEX),
         "orphan_sidecars": Path(ORPHAN_SIDECARS),
@@ -410,7 +408,6 @@ def main() -> int:
 
     assets_df = pd.DataFrame(asset_records).sort_values(["album_path", "file_name", "file_path"])
     assets_df.to_csv(outputs["media_assets"], index=False, quoting=csv.QUOTE_MINIMAL, encoding="utf-8-sig")
-    assets_df.to_csv(outputs["media_index"], index=False, quoting=csv.QUOTE_MINIMAL, encoding="utf-8-sig")
 
     orphan_sidecars_df = raw_df[
         (raw_df["file_role"] == "sidecar")
@@ -437,7 +434,6 @@ def main() -> int:
 
     print(f"saved_raw_files_to = {outputs['raw_files']}")
     print(f"saved_media_assets_to = {outputs['media_assets']}")
-    print(f"saved_media_index_to = {outputs['media_index']}")
     print(f"saved_orphan_sidecars_to = {outputs['orphan_sidecars']}")
     print(f"saved_archives_to = {outputs['archives_found']}")
     print(f"saved_audit_report_to = {outputs['audit_report']}")

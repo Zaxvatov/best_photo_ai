@@ -10,7 +10,6 @@ except ImportError as e:
 
 REQUIRED_PATHS = [
     "UNIQUE_MEDIA",
-    "ANALYSIS_IMAGES",
     "PHOTO_INDEX",
 ]
 
@@ -26,7 +25,6 @@ if missing_paths:
 
 
 INPUT = Path(config_paths.UNIQUE_MEDIA)
-OUT = Path(config_paths.ANALYSIS_IMAGES)
 OUT_PHOTO_INDEX = Path(config_paths.PHOTO_INDEX)
 
 
@@ -60,16 +58,14 @@ def main() -> None:
     ].copy()
 
     # Keep the current file_path-based downstream contract, but ensure the
-    # asset identity travels with every analysis row.
+    # asset identity travels with every photo-index row.
     imgs["file_path"] = imgs["primary_file_path"]
 
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    imgs.to_csv(OUT, index=False, encoding="utf-8-sig")
+    OUT_PHOTO_INDEX.parent.mkdir(parents=True, exist_ok=True)
     imgs.to_csv(OUT_PHOTO_INDEX, index=False, encoding="utf-8-sig")
 
     print("rows =", len(df))
-    print("images_for_analysis =", len(imgs))
-    print("saved_to =", OUT)
+    print("photo_assets_indexed =", len(imgs))
     print("photo_index_saved_to =", OUT_PHOTO_INDEX)
 
 

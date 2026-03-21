@@ -19,7 +19,11 @@ from PIL import Image
 from pillow_heif import register_heif_opener
 from tqdm import tqdm
 
-from config_paths import ANALYSIS_IMAGES, SIMILAR_PAIRS, SIMILAR_GROUPS
+import config_paths as cfg
+
+PHOTO_INDEX = Path(cfg.PHOTO_INDEX)
+SIMILAR_PAIRS = Path(cfg.SIMILAR_PAIRS)
+SIMILAR_GROUPS = Path(cfg.SIMILAR_GROUPS)
 
 # Stage 1: near-exact grouping via pHash
 PHASH_DISTANCE_THRESHOLD = 5
@@ -345,7 +349,7 @@ class ClipFeatureStore:
         self.cache: dict[str, dict[str, torch.Tensor]] = {}
         self.face_cache: dict[str, list[tuple[float, torch.Tensor]]] = {}
         self.face_detector = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
-        self.cache_dir = ANALYSIS_IMAGES.parent / f"clip_cache_{CLIP_MODEL_NAME}_{CLIP_PRETRAINED}".replace("-", "_").replace("/", "_")
+        self.cache_dir = PHOTO_INDEX.parent / f"clip_cache_{CLIP_MODEL_NAME}_{CLIP_PRETRAINED}".replace("-", "_").replace("/", "_")
         self.embed_cache_dir = self.cache_dir / "embed"
         self.face_cache_dir = self.cache_dir / "faces"
         self.embed_cache_dir.mkdir(parents=True, exist_ok=True)
@@ -799,13 +803,14 @@ def enrich_with_asset_metadata(base: pd.DataFrame, metadata: pd.DataFrame) -> pd
 
 
 def main() -> None:
-    df = pd.read_csv(ANALYSIS_IMAGES)
+    input_path = PHOTO_INDEX
+    df = pd.read_csv(input_path)
 
     required_columns = {"file_path", "phash", "width", "height"}
     missing_columns = required_columns - set(df.columns)
     if missing_columns:
         missing_str = ", ".join(sorted(missing_columns))
-        raise ValueError(f"В {ANALYSIS_IMAGES} отсутствуют обязательные колонки: {missing_str}")
+        raise ValueError(f"В {input_path} отсутствуют обязательные колонки: {missing_str}")
 
     df = df[df["phash"].notna()].copy()
     if "is_image" in df.columns:
@@ -825,6 +830,7 @@ def main() -> None:
     df = prepare_metadata(df)
 
     print("images_for_grouping =", len(df))
+    print("grouping_input =", input_path)
 
     phash_pairs = build_phash_pairs(df)
     local_phash_pairs = build_local_phash_pairs(df, phash_pairs)

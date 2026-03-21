@@ -18,7 +18,7 @@ except ImportError as e:
     raise ImportError("config_paths.py должен быть доступен для импорта") from e
 
 REQUIRED_VARS = [
-    "SIMILAR_GROUPS",
+    "PHOTO_INDEX",
     "SUBJECT",
 ]
 
@@ -32,7 +32,7 @@ if missing:
 
 register_heif_opener()
 
-INPUT = Path(paths.SIMILAR_GROUPS)
+INPUT = Path(paths.PHOTO_INDEX)
 OUT = Path(paths.SUBJECT)
 WORKERS = max(2, min(8, max(2, (os.cpu_count() or 8) // 2)))
 THREAD_LOCAL = threading.local()

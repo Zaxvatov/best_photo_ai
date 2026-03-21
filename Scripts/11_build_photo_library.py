@@ -90,10 +90,10 @@ def build_target_path(curated_root: Path, album_path: object, source_path: objec
 
 def build_plan(df: pd.DataFrame, curated_root: Path) -> pd.DataFrame:
     work = df.copy()
-    if "primary_file_path" not in work.columns:
-        work["primary_file_path"] = work["file_path"]
-    if "asset_id" not in work.columns:
-        work["asset_id"] = work["file_path"]
+    required = ["asset_id", "primary_file_path"]
+    missing = [column for column in required if column not in work.columns]
+    if missing:
+        raise KeyError(f"best_combined.csv must contain asset-native columns: {', '.join(missing)}")
     if "sidecar_paths" not in work.columns:
         work["sidecar_paths"] = "[]"
     if "album_path" not in work.columns:

@@ -49,22 +49,28 @@ python D:\GitHub\Best_photo_ai\Scripts\check_runtime.py
 - Перенос лучших файлов должен быть transactional: `move + manifest + rollback`.
 
 ## Текущий пайплайн
-- [01_preflight_archives.py](D:/GitHub/Best_photo_ai/Scripts/01_preflight_archives.py): ранний поиск архивов перед построением asset-базы.
+- [01_preflight_archives.py](D:/GitHub/Best_photo_ai/Scripts/01_preflight_archives.py): ранний поиск архивов, список `txt`, stop/continue и controlled unpack в staging перед построением asset-базы.
 - [02_scan_takeout.py](D:/GitHub/Best_photo_ai/Scripts/02_scan_takeout.py): первичный индекс файлов и сборка asset.
 - [03_find_exact_duplicates.py](D:/GitHub/Best_photo_ai/Scripts/03_find_exact_duplicates.py): каноникализация и exact dedupe.
-- [04_prepare_analysis_images.py](D:/GitHub/Best_photo_ai/Scripts/04_prepare_analysis_images.py): подготовка изображений для анализа.
+- [04_prepare_photo_index.py](D:/GitHub/Best_photo_ai/Scripts/04_prepare_photo_index.py): подготовка `photo_index.csv` для photo-ветки.
 - [05_group_similar_images.py](D:/GitHub/Best_photo_ai/Scripts/05_group_similar_images.py): группировка похожих фото и сцен.
 - [06_compute_sharpness.py](D:/GitHub/Best_photo_ai/Scripts/06_compute_sharpness.py): резкость.
 - [07_compute_composition.py](D:/GitHub/Best_photo_ai/Scripts/07_compute_composition.py): композиционные признаки.
 - [08_compute_subject.py](D:/GitHub/Best_photo_ai/Scripts/08_compute_subject.py): качество и выраженность субъекта.
 - [09_compute_aesthetic.py](D:/GitHub/Best_photo_ai/Scripts/09_compute_aesthetic.py): эстетическая оценка.
 - [10_build_best.py](D:/GitHub/Best_photo_ai/Scripts/10_build_best.py): финальный score и `review_groups.csv`.
+- [13_prepare_video_index.py](D:/GitHub/Best_photo_ai/Scripts/13_prepare_video_index.py): нормализованный вход video-ветки (`video_index.csv`).
 - [review_app.py](D:/GitHub/Best_photo_ai/Scripts/review_app.py): review UI.
 
-## Ближайшая архитектурная цель
-- завершить переход photo-pipeline от “файлов” к “asset”;
-- довести ранний `preflight` и `raw audit` для архивов, orphan sidecars и нерелевантных файлов до пользовательского диалога;
-- разделить photo/video pipeline;
-- построить action/export слой: `curation_plan` + `move_manifest` + `rollback`;
-- поддержать облачные источники и временные рамки анализа;
-- реализовать curated export без копирования, с rollback manifest.
+## Текущий статус
+- photo pipeline уже работает на asset-centric архитектуре;
+- review layer для фото стабилен и пригоден для настройки алгоритмов;
+- базовый action/export слой уже есть, но ещё не доведён до полного workflow;
+- archive preflight уже умеет stop/continue/save/unpack, но ещё не встроен в финальный пользовательский UX на всём пути;
+- video branch пока находится на уровне нормализованного входа через [13_prepare_video_index.py](D:/GitHub/Best_photo_ai/Scripts/13_prepare_video_index.py).
+
+## Ближайшие цели
+- довести archive preflight до завершённого пользовательского сценария во всём pipeline;
+- завершить transactional action/export workflow с rollback;
+- развить video analysis branch поверх `video_index.csv`;
+- затем продолжить refinement фото- и видео-алгоритмов.
