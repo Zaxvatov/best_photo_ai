@@ -1,14 +1,21 @@
 ~$*
-.venv
+
+# Virtual environments
+.venv/
 .venv311/
-__pycache__
-*.pyc
-data
-output
-logs
-.venv311/
+
+# Python cache
 __pycache__/
 *.pyc
-models/
+
+# Local editor settings
+.vscode/
+
+# Local runtime artifacts
 data/
+output/
+logs/
+
+# Models and weights
+models/
 *.pth
