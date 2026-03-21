@@ -1,0 +1,8 @@
+-r requirements.txt
+
+# Install CUDA-enabled PyTorch from the official PyTorch index.
+# If your machine needs a different CUDA build, replace cu121 with the
+# current stable build from https://pytorch.org/get-started/locally/
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch
+torchvision

@@ -1,410 +1,70 @@
-```markdown
+# Best Photo AI
 
-\# Best Photo AI
+Инструмент для анализа личных медиабиблиотек и отбора лучших фото и видео из серий и похожих сцен.
 
+Цель проекта:
+- убрать мусорные и дублирующие медиафайлы;
+- выбрать лучшие кадры и ролики;
+- сохранить только ценные воспоминания;
+- подготовить curated-библиотеку с возможностью отката.
 
+Полная целевая архитектура описана в [docs/pipeline.md](D:/GitHub/Best_photo_ai/docs/pipeline.md).
 
-Проект для автоматического выбора \*\*лучших фотографий из больших архивов\*\* (например Google Takeout).
-
-
-
-Алгоритм анализирует фотографии и вычисляет метрики качества, после чего выбирает \*\*лучшие кадры из каждой группы похожих снимков\*\*.
-
-
-
-\---
-
-
-
-\# Структура проекта
-
-
-
+## Установка окружения
+Базовые зависимости:
+```powershell
+pip install -r D:\GitHub\Best_photo_ai\requirements.txt
 ```
 
-
-
-Best\_photo\_ai
-
-│
-
-├─ Scripts
-
-│   01\_scan\_takeout.py
-
-│   02\_find\_exact\_duplicates.py
-
-│   03\_prepare\_analysis\_images.py
-
-│   04\_group\_similar\_images.py
-
-│   05\_compute\_sharpness.py
-
-│   06\_compute\_composition.py
-
-│   07\_compute\_subject.py
-
-│   08\_compute\_aesthetic.py
-
-│   09\_build\_best\_v7.py
-
-│   10\_build\_photo\_library.py
-
-│
-
-└─ review\_app.py
-
-
-
+CPU-профиль:
+```powershell
+pip install -r D:\GitHub\Best_photo_ai\requirements-cpu.txt
 ```
 
-
-
-\---
-
-
-
-\# Pipeline обработки фотографий
-
-
-
-\## 01\_scan\_takeout.py
-
-Сканирует архив фотографий.
-
-
-
-Создаёт основной индекс:
-
-
-
-\- путь к файлу
-
-\- размер
-
-\- sha256
-
-\- phash
-
-\- EXIF
-
-\- JSON sidecar
-
-
-
-Результат: media\_index.csv
-
-
-
-\## 02\_find\_exact\_duplicates.py
-
-Удаляет \*\*точные дубликаты файлов\*\* по `sha256`.
-
-Результаты:
-
-unique\_media.csv
-
-exact\_duplicates.csv
-
-
-
-
-
-\## 03\_prepare\_analysis\_images.py
-
-
-
-Отбирает изображения для анализа.
-
-
-
-Фильтрация:
-
-
-
-\- только изображения
-
-\- исключение повреждённых файлов
-
-
-
-Результат:
-
-
-
+CUDA-профиль:
+```powershell
+pip install -r D:\GitHub\Best_photo_ai\requirements-cuda.txt
 ```
 
-
-
-analysis\_images.csv
-
-
-
+Проверка runtime:
+```powershell
+python D:\GitHub\Best_photo_ai\Scripts\check_runtime.py
 ```
 
-
-
-\---
-
-
-
-\## 04\_group\_similar\_images.py
-
-
-
-Группирует похожие фотографии.
-
-
-
-Используется:
-
-
-
-\- perceptual hash (phash)
-
-
-
-Результат:
-
-
-
-```
-
-
-
-photo\_groups.csv
-
-
-
-```
-
-
-
-\---
-
-
-
-\## 05\_compute\_sharpness.py
-
-
-
-Оценивает \*\*резкость изображения\*\*.
-
-
-
-Метрика:
-
-
-
-\- Laplacian variance
-
-
-
-Результат:
-
-
-
-```
-
-
-
-sharpness\_score
-
-
-
-```
-
-
-
-\---
-
-
-
-\## 06\_compute\_composition.py
-
-
-
-Оценивает \*\*композицию кадра\*\*.
-
-
-
-Метрики:
-
-
-
-\- правило третей
-
-\- баланс
-
-\- центр кадра
-
-
-
-\---
-
-
-
-\## 07\_compute\_subject.py
-
-
-
-Определяет главный объект фотографии.
-
-
-
-Используется:
-
-
-
-\- детекция лица
-
-\- положение лица
-
-\- размер лица
-
-
-
-Метрики:
-
-
-
-\- distance\_to\_center
-
-\- subject\_size
-
-
-
-\---
-
-
-
-\## 08\_compute\_aesthetic.py
-
-
-
-Оценивает \*\*общую эстетическую привлекательность\*\*.
-
-
-
-Метрики:
-
-
-
-\- цвет
-
-\- контраст
-
-\- экспозиция
-
-
-
-\---
-
-
-
-\## 09\_build\_best\_v7.py
-
-
-
-Объединяет все метрики и вычисляет \*\*финальный рейтинг фотографий\*\*.
-
-
-
-Результат:
-
-
-
-```
-
-
-
-best\_score
-
-
-
-```
-
-
-
-\---
-
-
-
-\## 10\_build\_photo\_library.py
-
-
-
-Формирует \*\*финальную библиотеку лучших фотографий\*\*.
-
-
-
-Выбирается:
-
-
-
-\- лучший кадр из каждой группы
-
-\- несколько лучших одиночных фото
-
-
-
-\---
-
-
-
-\# Источник данных
-
-
-
-Фотографии лежат \*\*вне Git-репозитория\*\*.
-
-
-
-Например:
-
-
-
-```
-
-
-
-D:\\photo\_ai\\data\\raw\_takeout
-
-
-
-```
-
-
-
-GitHub хранит только \*\*код проекта\*\*, а не сами фотографии.
-
-
-
-\---
-
-
-
-\# Назначение проекта
-
-
-
-Цель — автоматически отобрать \*\*лучшие фотографии из десятков тысяч снимков\*\*, минимизируя ручной просмотр.
-
-```
-
-
-
-После вставки \*\*сохрани файл\*\*.
-
-
-
-\---
-
-
-
-Следующий шаг будет важный:
-
-мы сделаем так, чтобы \*\*любой ИИ (Cursor, ChatGPT, Copilot)\*\* автоматически понимал структуру проекта.
-
-
-
+Для быстрого `05_group_similar_images.py` нужен:
+- CUDA-enabled `torch`
+- `cuda_available = True`
+- видимая NVIDIA GPU в `check_runtime.py`
+
+Для ускорения photo-pipeline уже реализовано:
+- batched CUDA semantic grouping в [05_group_similar_images.py](D:/GitHub/Best_photo_ai/Scripts/05_group_similar_images.py);
+- disk-cache для CLIP и face embeddings в [05_group_similar_images.py](D:/GitHub/Best_photo_ai/Scripts/05_group_similar_images.py);
+- parallel CPU execution в [06_compute_sharpness.py](D:/GitHub/Best_photo_ai/Scripts/06_compute_sharpness.py), [07_compute_composition.py](D:/GitHub/Best_photo_ai/Scripts/07_compute_composition.py), [08_compute_subject.py](D:/GitHub/Best_photo_ai/Scripts/08_compute_subject.py);
+- batched aesthetic scoring с GPU support и score-cache в [09_compute_aesthetic.py](D:/GitHub/Best_photo_ai/Scripts/09_compute_aesthetic.py).
+
+## Ключевые принципы
+- Единица обработки: не отдельный файл, а `asset`.
+- `asset` включает основной медиафайл и связанные service/sidecar-файлы.
+- Viewer не должен содержать бизнес-логику классификации; он только показывает и фильтрует уже подготовленные данные.
+- Перенос лучших файлов должен быть transactional: `move + manifest + rollback`.
+
+## Текущий пайплайн
+- [01_preflight_archives.py](D:/GitHub/Best_photo_ai/Scripts/01_preflight_archives.py): ранний поиск архивов перед построением asset-базы.
+- [02_scan_takeout.py](D:/GitHub/Best_photo_ai/Scripts/02_scan_takeout.py): первичный индекс файлов и сборка asset.
+- [03_find_exact_duplicates.py](D:/GitHub/Best_photo_ai/Scripts/03_find_exact_duplicates.py): каноникализация и exact dedupe.
+- [04_prepare_analysis_images.py](D:/GitHub/Best_photo_ai/Scripts/04_prepare_analysis_images.py): подготовка изображений для анализа.
+- [05_group_similar_images.py](D:/GitHub/Best_photo_ai/Scripts/05_group_similar_images.py): группировка похожих фото и сцен.
+- [06_compute_sharpness.py](D:/GitHub/Best_photo_ai/Scripts/06_compute_sharpness.py): резкость.
+- [07_compute_composition.py](D:/GitHub/Best_photo_ai/Scripts/07_compute_composition.py): композиционные признаки.
+- [08_compute_subject.py](D:/GitHub/Best_photo_ai/Scripts/08_compute_subject.py): качество и выраженность субъекта.
+- [09_compute_aesthetic.py](D:/GitHub/Best_photo_ai/Scripts/09_compute_aesthetic.py): эстетическая оценка.
+- [10_build_best.py](D:/GitHub/Best_photo_ai/Scripts/10_build_best.py): финальный score и `review_groups.csv`.
+- [review_app.py](D:/GitHub/Best_photo_ai/Scripts/review_app.py): review UI.
+
+## Ближайшая архитектурная цель
+- завершить переход photo-pipeline от “файлов” к “asset”;
+- довести ранний `preflight` и `raw audit` для архивов, orphan sidecars и нерелевантных файлов до пользовательского диалога;
+- разделить photo/video pipeline;
+- построить action/export слой: `curation_plan` + `move_manifest` + `rollback`;
+- поддержать облачные источники и временные рамки анализа;
+- реализовать curated export без копирования, с rollback manifest.

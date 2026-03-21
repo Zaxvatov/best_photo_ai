@@ -13,18 +13,43 @@ OUTPUT_DIR = DATA_DIR / "output"
 
 BEST_DIR = OUTPUT_DIR / "best"
 REVIEW_DIR = OUTPUT_DIR / "review"
+CURATED_LIBRARY_DIR = DATA_DIR / "library_curated"
+
+# -----------------------
+# Models
+# -----------------------
+
+# NOTE: models are stored outside DATA_DIR
+# models stored inside project
+MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
+
+# model filenames (centralized)
+AESTHETIC_MODEL_FILENAME = "sa_0_4_vit_l_14_linear.pth"
+
+# full paths
+AESTHETIC_MODEL = MODELS_DIR / AESTHETIC_MODEL_FILENAME
 
 
 # -----------------------
 # Index files
 # -----------------------
 
-MEDIA_INDEX_CSV = INDEX_DIR / "media_index.csv"
+# main media index produced by step 01
+MEDIA_INDEX = INDEX_DIR / "media_index.csv"
+MEDIA_ASSETS = INDEX_DIR / "media_assets.csv"
+RAW_FILES_INDEX = INDEX_DIR / "raw_files.csv"
+ORPHAN_SIDECARS = INDEX_DIR / "orphan_sidecars.csv"
+ARCHIVES_FOUND = INDEX_DIR / "archives_found.csv"
+AUDIT_REPORT = INDEX_DIR / "audit_report.csv"
 
 UNIQUE_MEDIA = INDEX_DIR / "unique_media.csv"
+
 EXACT_DUPLICATES = INDEX_DIR / "exact_duplicates.csv"
 
 ANALYSIS_IMAGES = INDEX_DIR / "analysis_images.csv"
+PHOTO_INDEX = INDEX_DIR / "photo_index.csv"
+PHOTO_FEATURES = INDEX_DIR / "photo_features.csv"
+PHOTO_SEMANTIC_SCORES = INDEX_DIR / "photo_semantic_scores.csv"
 
 SIMILAR_PAIRS = INDEX_DIR / "similar_pairs.csv"
 SIMILAR_GROUPS = INDEX_DIR / "similar_groups.csv"
@@ -46,3 +71,5 @@ AESTHETIC = INDEX_DIR / "aesthetic_scores.csv"
 
 BEST_COMBINED = INDEX_DIR / "best_combined.csv"
 REVIEW_GROUPS = INDEX_DIR / "review_groups.csv"
+CURATION_PLAN = INDEX_DIR / "curation_plan.csv"
+MOVE_MANIFEST = INDEX_DIR / "move_manifest.csv"

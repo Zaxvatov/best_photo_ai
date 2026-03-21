@@ -1,0 +1,25 @@
+# Best_photo_ai — draft requirements based on the current project scripts/context
+# Version pinning is intentionally omitted until a full import pass across all files.
+
+# Core data processing
+numpy
+pandas
+tqdm
+
+# Image processing
+Pillow
+opencv-python
+imagehash
+scikit-image
+
+# ML / scoring
+# Install PyTorch from requirements-cpu.txt or requirements-cuda.txt,
+# then install this base file.
+open-clip-torch
+
+# Utilities
+python-dateutil
+streamlit
+
+# HEIF/HEIC support
+pillow-heif

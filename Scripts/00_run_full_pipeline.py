@@ -43,8 +43,6 @@ required_attrs = [
     "OUTPUT_DIR",
     "BEST_DIR",
     "REVIEW_DIR",
-    "validate_config",
-    "ensure_runtime_dirs",
 ]
 missing_attrs = [name for name in required_attrs if not hasattr(CONFIG_PATHS, name)]
 if missing_attrs:
@@ -61,8 +59,10 @@ RAW_TAKEOUT_DIR = Path(CONFIG_PATHS.RAW_TAKEOUT_DIR)
 BEST_DIR = Path(CONFIG_PATHS.BEST_DIR)
 REVIEW_DIR = Path(CONFIG_PATHS.REVIEW_DIR)
 SCRIPTS_DIR = SCRIPT_DIR
-validate_config = CONFIG_PATHS.validate_config
-ensure_runtime_dirs = CONFIG_PATHS.ensure_runtime_dirs
+# config_paths in this project does not expose helper functions.
+# Orchestrator performs directory validation and creation itself.
+validate_config = None
+ensure_runtime_dirs = None
 
 
 # =========================
@@ -70,15 +70,16 @@ ensure_runtime_dirs = CONFIG_PATHS.ensure_runtime_dirs
 # =========================
 
 PIPELINE = [
-    "01_scan_takeout.py",
-    "02_find_exact_duplicates.py",
-    "03_prepare_analysis_images.py",
-    "04_group_similar_images.py",
-    "05_compute_sharpness.py",
-    "06_compute_composition.py",
-    "07_compute_subject.py",
-    "08_compute_aesthetic.py",
-    "09_build_best.py",
+    "01_preflight_archives.py",
+    "02_scan_takeout.py",
+    "03_find_exact_duplicates.py",
+    "04_prepare_analysis_images.py",
+    "05_group_similar_images.py",
+    "06_compute_sharpness.py",
+    "07_compute_composition.py",
+    "08_compute_subject.py",
+    "09_compute_aesthetic.py",
+    "10_build_best.py",
 ]
 
 CLEAN_DIRS = [INDEX_DIR, LOGS_DIR, OUTPUT_DIR]
@@ -108,8 +109,13 @@ def ensure_exists(paths: Iterable[Path]) -> None:
 
 
 def prepare_runtime_dirs() -> None:
-    ensure_runtime_dirs()
-    ensure_exists([LOGS_DIR])
+    ensure_exists([
+        INDEX_DIR,
+        OUTPUT_DIR,
+        BEST_DIR,
+        REVIEW_DIR,
+        LOGS_DIR,
+    ])
 
 
 def safe_clean_directory(path: Path, allowed_root: Path) -> None:
@@ -192,7 +198,6 @@ def validate_resume_state() -> None:
 
 
 def validate_environment() -> None:
-    validate_config()
 
     missing = []
 
@@ -218,7 +223,7 @@ def validate_environment() -> None:
 
 
 def build_command(script_path: Path) -> list[str]:
-    if script_path.name == "01_scan_takeout.py":
+    if script_path.name in {"01_preflight_archives.py", "02_scan_takeout.py"}:
         return [sys.executable, str(script_path), str(RAW_TAKEOUT_DIR)]
     return [sys.executable, str(script_path), str(INDEX_DIR)]
 
@@ -302,6 +307,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Continue from the first step that does not have a .done marker in logs.",
     )
+    parser.add_argument(
+        "--from-step",
+        type=int,
+        help="Start pipeline from specific step number (1-based). Overrides --resume.",
+    )
     return parser.parse_args()
 
 
@@ -310,7 +320,12 @@ def main() -> int:
         args = parse_args()
         validate_environment()
 
-        if args.resume:
+        if args.from_step:
+            if args.from_step < 1 or args.from_step > len(PIPELINE):
+                raise ValueError(f"--from-step must be between 1 and {len(PIPELINE)}")
+            start_index = args.from_step
+            print(f"Manual start from step {start_index}: {PIPELINE[start_index - 1]}\n")
+        elif args.resume:
             validate_resume_state()
             start_index = get_resume_start_index()
             if start_index > len(PIPELINE):

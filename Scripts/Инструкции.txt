@@ -1,9 +1,0 @@
-Запустить окружение D:\photo_ai\.venv311\Scripts\Activate.ps1
-
-00_run_full_pipeline.py
-Обычный Запуск: python D:\GitHub\Best_photo_ai\Scripts\00_run_full_pipeline.py
-Запуск с продолжением: python D:\GitHub\Best_photo_ai\Scripts\00_run_full_pipeline.py --resume
-
-
-Запуск вьюера
-streamlit run Scripts/review_app.py

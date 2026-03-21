@@ -1,7 +1,14 @@
 ~$*
 .venv
+.venv311/
 __pycache__
 *.pyc
 data
 output
 logs
+.venv311/
+__pycache__/
+*.pyc
+models/
+data/
+*.pth
