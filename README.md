@@ -60,17 +60,40 @@ python D:\GitHub\Best_photo_ai\Scripts\check_runtime.py
 - [09_compute_aesthetic.py](D:/GitHub/Best_photo_ai/Scripts/09_compute_aesthetic.py): эстетическая оценка.
 - [10_build_best.py](D:/GitHub/Best_photo_ai/Scripts/10_build_best.py): финальный score и `review_groups.csv`.
 - [13_prepare_video_index.py](D:/GitHub/Best_photo_ai/Scripts/13_prepare_video_index.py): нормализованный вход video-ветки (`video_index.csv`).
-- [review_app.py](D:/GitHub/Best_photo_ai/Scripts/review_app.py): review UI.
+- [14_compute_video_metrics.py](D:/GitHub/Best_photo_ai/Scripts/14_compute_video_metrics.py): технические метрики видео (`video_metrics.csv`), `ffprobe` при наличии, `OpenCV` как fallback, disk-cache повторных прогонов.
+- [15_group_videos.py](D:/GitHub/Best_photo_ai/Scripts/15_group_videos.py): первая дешёвая группировка видео в `video_groups.csv` по времени, альбому, соседству файлов и техметрикам.
+- [16_build_video_best.py](D:/GitHub/Best_photo_ai/Scripts/16_build_video_best.py): выбор лучшего ролика внутри `video_group_id` и сборка `video_best.csv`.
+- [17_build_video_review.py](D:/GitHub/Best_photo_ai/Scripts/17_build_video_review.py): denormalized video review layer `video_review_groups.csv`.
+- [review_web_app.py](D:/GitHub/Best_photo_ai/Scripts/review_web_app.py): основной review UI на `FastAPI + static frontend` в режимах `Фото/Видео`.
 
 ## Текущий статус
 - photo pipeline уже работает на asset-centric архитектуре;
 - review layer для фото стабилен и пригоден для настройки алгоритмов;
 - базовый action/export слой уже есть, но ещё не доведён до полного workflow;
 - archive preflight уже умеет stop/continue/save/unpack, но ещё не встроен в финальный пользовательский UX на всём пути;
-- video branch пока находится на уровне нормализованного входа через [13_prepare_video_index.py](D:/GitHub/Best_photo_ai/Scripts/13_prepare_video_index.py).
+- video branch уже имеет нормализованный вход, технический слой, первую дешёвую группировку, базовый ranking и review-layer через [13_prepare_video_index.py](D:/GitHub/Best_photo_ai/Scripts/13_prepare_video_index.py), [14_compute_video_metrics.py](D:/GitHub/Best_photo_ai/Scripts/14_compute_video_metrics.py), [15_group_videos.py](D:/GitHub/Best_photo_ai/Scripts/15_group_videos.py), [16_build_video_best.py](D:/GitHub/Best_photo_ai/Scripts/16_build_video_best.py) и [17_build_video_review.py](D:/GitHub/Best_photo_ai/Scripts/17_build_video_review.py).
+- основной viewer переведён на web UI с нормальным HTML/CSS layout;
+- legacy Streamlit viewer удалён из активного дерева проекта;
+- добавлен smoke-check web viewer/API.
+
+## Запуск viewer
+Viewer:
+```powershell
+D:\GitHub\Best_photo_ai\.venv311\Scripts\python.exe D:\GitHub\Best_photo_ai\Scripts\run_review_web.py
+```
+
+Потом открыть:
+```text
+http://127.0.0.1:8512
+```
+
+Smoke-check viewer:
+```powershell
+D:\GitHub\Best_photo_ai\.venv311\Scripts\python.exe -m unittest D:\GitHub\Best_photo_ai\tests\test_review_web_smoke.py
+```
 
 ## Ближайшие цели
 - довести archive preflight до завершённого пользовательского сценария во всём pipeline;
 - завершить transactional action/export workflow с rollback;
-- развить video analysis branch поверх `video_index.csv`;
+- развить video analysis branch поверх `video_index.csv`, `video_metrics.csv` и `video_groups.csv`;
 - затем продолжить refinement фото- и видео-алгоритмов.

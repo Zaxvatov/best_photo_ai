@@ -27,7 +27,8 @@ def main() -> int:
     open_clip, open_clip_error = safe_import("open_clip")
     cv2, cv2_error = safe_import("cv2")
     pillow_heif, pillow_heif_error = safe_import("pillow_heif")
-    streamlit, streamlit_error = safe_import("streamlit")
+    fastapi, fastapi_error = safe_import("fastapi")
+    uvicorn, uvicorn_error = safe_import("uvicorn")
 
     if torch is None:
         print_kv("torch_import", f"error: {torch_error}")
@@ -46,7 +47,8 @@ def main() -> int:
     print_kv("open_clip_import", "ok" if open_clip is not None else f"error: {open_clip_error}")
     print_kv("opencv_import", "ok" if cv2 is not None else f"error: {cv2_error}")
     print_kv("pillow_heif_import", "ok" if pillow_heif is not None else f"error: {pillow_heif_error}")
-    print_kv("streamlit_import", "ok" if streamlit is not None else f"error: {streamlit_error}")
+    print_kv("fastapi_import", "ok" if fastapi is not None else f"error: {fastapi_error}")
+    print_kv("uvicorn_import", "ok" if uvicorn is not None else f"error: {uvicorn_error}")
     return 0
 
 

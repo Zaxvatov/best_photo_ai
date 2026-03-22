@@ -19,7 +19,9 @@ open-clip-torch
 
 # Utilities
 python-dateutil
-streamlit
+fastapi
+uvicorn
 
 # HEIF/HEIC support
 pillow-heif
+send2trash

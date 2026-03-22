@@ -24,11 +24,17 @@
   - `photo_semantic_scores.csv`
 - scene grouping и ranking для фото;
 - review UI для контроля группировки, тегов и лучших кадров;
+- web viewer на `FastAPI + static frontend` как основной интерфейс review;
+- legacy Streamlit viewer удалён из активного дерева проекта;
+- smoke-check для web viewer/API добавлен в `tests/test_review_web_smoke.py`;
 - базовый action/export слой:
   - `curation_plan.csv`
   - `move_manifest.csv`
 - отдельный нормализованный вход video-ветки:
   - `video_index.csv`
+  - `video_metrics.csv`
+  - `video_groups.csv`
+  - `video_review_groups.csv`
 
 Частично реализовано:
 - preflight для архивов:
@@ -41,8 +47,8 @@
   - asset-aware логика уже начата;
   - полный переход на единый cleanup contract ещё не завершён;
 - video branch:
-  - technical entry point уже есть;
-  - video metrics, grouping и ranking ещё не реализованы.
+  - technical entry point, базовые video metrics, первая дешёвая grouping-эвристика, базовый ranking и review layer уже есть;
+  - semantic quality ещё не завершены.
 
 Не реализовано:
 - полноценный video analysis pipeline;
@@ -59,7 +65,7 @@
   - rollback script
   - единый сценарий plan/review/execute/rollback
   - cleanup integration;
-- развить video branch поверх `video_index.csv`;
+- развить video branch поверх `video_index.csv`, `video_metrics.csv` и `video_groups.csv`;
 - после этого вернуться к улучшению моделей и правил выбора лучших кадров/роликов.
 
 ## Текущий приоритет
@@ -81,6 +87,29 @@
 10. [10_build_best.py](D:/GitHub/Best_photo_ai/Scripts/10_build_best.py)
 11. [11_build_photo_library.py](D:/GitHub/Best_photo_ai/Scripts/11_build_photo_library.py)
 12. [12_cleanup_lower_rated_duplicates.py](D:/GitHub/Best_photo_ai/Scripts/12_cleanup_lower_rated_duplicates.py)
+13. [13_prepare_video_index.py](D:/GitHub/Best_photo_ai/Scripts/13_prepare_video_index.py)
+14. [14_compute_video_metrics.py](D:/GitHub/Best_photo_ai/Scripts/14_compute_video_metrics.py)
+15. [15_group_videos.py](D:/GitHub/Best_photo_ai/Scripts/15_group_videos.py)
+16. [16_build_video_best.py](D:/GitHub/Best_photo_ai/Scripts/16_build_video_best.py)
+17. [17_build_video_review.py](D:/GitHub/Best_photo_ai/Scripts/17_build_video_review.py)
+18. [18_detect_live_photo_pairs.py](D:/GitHub/Best_photo_ai/Scripts/18_detect_live_photo_pairs.py)
+19. [review_web_app.py](D:/GitHub/Best_photo_ai/Scripts/review_web_app.py)
+20. [run_review_web.py](D:/GitHub/Best_photo_ai/Scripts/run_review_web.py)
+
+## Запуск review UI
+Основной viewer:
+- [review_web_app.py](D:/GitHub/Best_photo_ai/Scripts/review_web_app.py)
+- launcher: [run_review_web.py](D:/GitHub/Best_photo_ai/Scripts/run_review_web.py)
+
+Запуск:
+```powershell
+D:\GitHub\Best_photo_ai\.venv311\Scripts\python.exe D:\GitHub\Best_photo_ai\Scripts\run_review_web.py
+```
+
+Открыть:
+```text
+http://127.0.0.1:8512
+```
 
 ## Базовые сущности
 
@@ -299,7 +328,7 @@ Score учитывает:
 Текущее состояние:
 - [10_build_best.py](D:/GitHub/Best_photo_ai/Scripts/10_build_best.py) пересобирает `photo_features.csv` и `photo_semantic_scores.csv` из `photo_index + raw score files`, а ranking уже считает поверх этих нормализованных слоёв;
 - `review_groups.csv` уже содержит asset-aware поля для viewer;
-- [review_app.py](D:/GitHub/Best_photo_ai/Scripts/review_app.py) может добирать недостающие поля из `photo_features.csv` и `photo_semantic_scores.csv`, если в `review_groups.csv` их не оказалось.
+- [review_web_app.py](D:/GitHub/Best_photo_ai/Scripts/review_web_app.py) читает `review_groups.csv` как основной denormalized review-layer для фото.
 
 ## Video Pipeline
 
@@ -314,6 +343,17 @@ Score учитывает:
 Текущее состояние:
 - [13_prepare_video_index.py](D:/GitHub/Best_photo_ai/Scripts/13_prepare_video_index.py) уже выделяет video assets из `unique_media.csv`;
 - на выходе создаётся `video_index.csv` с asset-aware полями и placeholder-колонками для будущих video metrics;
+- [14_compute_video_metrics.py](D:/GitHub/Best_photo_ai/Scripts/14_compute_video_metrics.py) считает базовые технические метрики из `video_index.csv` и пишет `video_metrics.csv`;
+- шаг использует `ffprobe` как основной backend при наличии в системе, `OpenCV` как fallback и disk-cache для повторных прогонов;
+- текущая реализация использует OpenCV backend и уже даёт:
+  - `duration_sec`
+  - `fps`
+  - `frame_count`
+  - `width`
+  - `height`
+  - `bitrate_kbps`
+  - `video_codec`
+  - `video_metrics_status`;
 - текущий orchestrator [00_run_full_pipeline.py](D:/GitHub/Best_photo_ai/Scripts/00_run_full_pipeline.py) остаётся photo-only и не запускает video-ветку автоматически.
 
 ### 13. Video Semantic Analysis
@@ -323,6 +363,15 @@ Score учитывает:
 - similarity between videos;
 - связность с photo scenes.
 
+Текущее состояние:
+- [15_group_videos.py](D:/GitHub/Best_photo_ai/Scripts/15_group_videos.py) уже строит первый `video_groups.csv` без keyframes;
+- текущая версия использует дешёвые признаки:
+  - album proximity
+  - json/fs time
+  - numeric filename gap
+  - duration/resolution/codec compatibility;
+- это базовый grouping layer, который позже должен быть усилен keyframes и semantic similarity.
+
 ### 14. Video Ranking
 Задача:
 - выбрать лучший ролик внутри серии или сцены.
@@ -331,6 +380,27 @@ Score учитывает:
 - `video_index.csv`
 - `video_groups.csv`
 - `video_best.csv`
+
+Текущее состояние:
+- [16_build_video_best.py](D:/GitHub/Best_photo_ai/Scripts/16_build_video_best.py) уже строит `video_best.csv`;
+- текущий ranking опирается на дешёвые технические сигналы:
+  - resolution / pixels
+  - bitrate
+  - fps
+  - duration
+  - audio presence
+  - наличие sidecar;
+- это базовый слой выбора, который позже должен быть усилен semantic quality и review integration.
+
+### 15. Video Review Layer
+Текущее состояние:
+- [17_build_video_review.py](D:/GitHub/Best_photo_ai/Scripts/17_build_video_review.py) уже собирает `video_review_groups.csv`;
+- [review_web_app.py](D:/GitHub/Best_photo_ai/Scripts/review_web_app.py) поддерживает режимы `Фото/Видео`;
+- в video mode viewer показывает:
+  - video groups
+  - лучший ролик в группе
+  - video technical metrics
+  - локальное video preview.
 
 ## Review Layer
 

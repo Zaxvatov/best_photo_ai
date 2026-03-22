@@ -15,4 +15,4 @@ pip install -r requirements.txt
 
 
 Запуск вьюера
-streamlit run Scripts/review_app.py
+D:\GitHub\Best_photo_ai\.venv311\Scripts\python.exe D:\GitHub\Best_photo_ai\Scripts\run_review_web.py

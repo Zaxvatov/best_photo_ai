@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Best Photo AI Review</title>
+  <link rel="stylesheet" href="/static/styles.css?v=20260322-5" />
+</head>
+<body>
+  <div id="app">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title">Сцены</div>
+        <div id="group-summary" class="sidebar-summary"></div>
+        <div class="mode-switch">
+          <button class="mode-btn active" data-mode="photo" title="Режим просмотра фотогрупп">Фото</button>
+          <button class="mode-btn" data-mode="video" title="Режим просмотра видеогрупп">Видео</button>
+        </div>
+        <div class="nav-buttons">
+          <button id="prev-group" title="Предыдущая группа">↑</button>
+          <button id="next-group" title="Следующая группа">↓</button>
+        </div>
+        <div class="scene-list-header">
+          <span></span>
+          <span title="Номер общей сцены с общим фоном и похожей сценой">Общая</span>
+          <span title="Номер частной сцены с тем же фоном, но с другими участниками">Частная</span>
+          <span title="Число элементов в группе">#</span>
+        </div>
+      </div>
+      <div id="group-list" class="group-list"></div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <h1 id="group-title">Сцена</h1>
+        <div class="controls">
+          <label class="control" title="Показывать вместе строгие группы, если они входят в одну объединённую сцену"><input type="checkbox" id="merge-scene-mode" checked /> Объединять похожие сцены</label>
+          <label class="control" title="Показывать весь набор метрик, включая редко используемые поля"><input type="checkbox" id="show-all-metrics" /> Показывать все метрики</label>
+          <div id="photo-filters" class="filter-stack">
+            <label class="control" title="Показывать сцены с людьми"><input type="checkbox" id="filter-people" checked /> Люди</label>
+            <label class="control" title="Показывать сцены без людей: природа, животные, интерьер"><input type="checkbox" id="filter-landscapes" checked /> Пейзажи</label>
+            <label class="control" title="Показывать документы, скриншоты, объявления и подобный контент"><input type="checkbox" id="filter-documents" checked /> Документы</label>
+          </div>
+          <div id="video-filters" class="filter-stack hidden">
+            <label class="control" title="Показывать видео-группы из одного ролика"><input type="checkbox" id="show-single-videos" /> Показывать одиночные</label>
+            <label class="control" title="Показывать видео, похожие на Live Photo пары с фотографией"><input type="checkbox" id="filter-live-photo-videos" checked /> Live Photo</label>
+            <label class="control" title="Показывать обычные видео, не отмеченные как Live Photo"><input type="checkbox" id="filter-regular-videos" checked /> Обычные видео</label>
+          </div>
+        </div>
+        <div class="action-stack">
+          <div id="selection-summary" class="selection-summary">Выбрано: 0</div>
+          <button id="delete-selected" class="delete-btn" title="Удалить выбранные asset и их sidecar-файлы">Удалить</button>
+        </div>
+      </header>
+
+      <div class="main-content">
+        <section id="status" class="status"></section>
+        <section id="group-view" class="group-view"></section>
+      </div>
+    </main>
+  </div>
+
+  <script src="/static/app.js?v=20260322-5"></script>
+</body>
+</html>
